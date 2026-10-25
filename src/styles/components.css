@@ -1,0 +1,86 @@
+/* src/styles/components.css */
+/* Navigation */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-color);
+  padding: 1rem;
+  border-bottom: 1px solid var(--secondary-color);
+}
+
+.navbar__logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.navbar__links {
+  list-style: none;
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar__links a {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.navbar__links a:hover {
+  color: var(--accent-color);
+}
+
+/* Wallet button */
+.wallet-button {
+  background: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.wallet-button__warning {
+  color: var(--accent-color);
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 1rem;
+  background: var(--bg-color);
+  border-top: 1px solid var(--secondary-color);
+  color: var(--text-color);
+}
+
+/* Job card */
+.job-card {
+  background: #1a1a1a;
+  border: 1px solid var(--secondary-color);
+  border-radius: var(--border-radius);
+  padding: 1rem;
+}
+
+.job-card__title {
+  color: var(--primary-color);
+  margin: 0;
+}
+
+.job-card__desc {
+  margin: 0.5rem 0;
+}
+
+.job-card__budget,
+.job-card__status {
+  margin-top: 0.5rem;
+  color: var(--text-color);
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--border-radius);
+  color: #fff;
+  font-weight: 600;
+}

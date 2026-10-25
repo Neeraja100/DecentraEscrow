@@ -1,0 +1,68 @@
+/* src/styles/global.css */
+/* Black & Purple theme – base layout and typography */
+:root {
+  --bg-color: #0a0a0a;           /* deep black */
+  --primary-color: #6a0dad;      /* rich purple */
+  --secondary-color: #9b4bcc;    /* lighter purple */
+  --accent-color: #c084fc;       /* soft accent for hover */
+  --text-color: #f5f5f5;        /* light gray for readability */
+  --border-radius: 8px;
+  --transition-speed: 0.2s;
+  --max-content-width: 1200px;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-color);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background-color var(--transition-speed);
+}
+
+.button {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+}
+
+.button.primary {
+  background-color: var(--primary-color);
+}
+
+.button.secondary {
+  background-color: var(--secondary-color);
+}
+
+.button:hover {
+  background-color: var(--accent-color);
+}
+
+.container {
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: 1rem;
+}
