@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { WalletProvider } from './context/WalletContext.jsx';
+import { EscrowProvider } from './context/EscrowContext.jsx';
 import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import Home from './pages/Home.jsx';
@@ -17,21 +18,23 @@ import NotFound from './pages/NotFound.jsx';
 function App() {
   return (
     <WalletProvider>
-      <Router>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/jobs/:id" element={<JobDetails />} />
-          <Route path="/create-job" element={<CreateJob />} />
-          <Route path="/escrow/:id/fund" element={<EscrowFunding />} />
-          <Route path="/jobs/:id/progress" element={<JobProgress />} />
-          <Route path="/jobs/:id/review" element={<ClientReview />} />
-          <Route path="/transaction-success" element={<TransactionSuccess />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Footer />
-      </Router>
+      <EscrowProvider>
+        <Router>
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/jobs/:id" element={<JobDetails />} />
+            <Route path="/create-job" element={<CreateJob />} />
+            <Route path="/escrow/:id/fund" element={<EscrowFunding />} />
+            <Route path="/jobs/:id/progress" element={<JobProgress />} />
+            <Route path="/jobs/:id/review" element={<ClientReview />} />
+            <Route path="/transaction-success" element={<TransactionSuccess />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Footer />
+        </Router>
+      </EscrowProvider>
     </WalletProvider>
   );
 }

@@ -1,83 +1,146 @@
 // src/pages/JobDetails.jsx
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MOCK_JOBS, CATEGORY_COLORS } from '../utils/mockData.js';
-import { formatAddress } from '../utils/formatAddress.js';
+import { useEscrow } from '../context/EscrowContext.jsx';
+import { CATEGORY_COLORS } from '../utils/mockData.js';
 
 const JobDetails = () => {
   const { id } = useParams();
-  const job = MOCK_JOBS.find(j => j.id === id) || MOCK_JOBS[0];
-  const catClass = CATEGORY_COLORS[job.category] || 'badge-gray';
+  const { getJob } = useEscrow();
+  const job = getJob(id);
 
-  const initials = job.clientAddress.slice(2, 4).toUpperCase();
+  const catClass = CATEGORY_COLORS[job.category] || 'badge-gray';
+  const clientShort = job.clientShort || `${job.clientAddress.slice(0, 4)}...${job.clientAddress.slice(-4)}`;
+  const avatarLetter = clientShort.slice(2, 4).toUpperCase();
 
   return (
     <main className="page-wrapper">
-      <div className="container job-details-page">
-        <Link to="/marketplace" className="back-link">← Back to Jobs</Link>
+      <div className="container">
+        <Link to="/marketplace" className="back-link">
+          ← Back to Jobs
+        </Link>
 
-        <div className="job-details-header">
-          <div className="job-details-header__left">
-            <span className={`badge ${catClass}`}>{job.category}</span>
-            <h1 className="job-details-header__title">{job.title}</h1>
+        {/* Hero Card */}
+        <div className="job-details-hero-card">
+          <div className="job-details-hero__top">
+            <div>
+              <div className="job-details-hero__title-row">
+                <h1 className="job-details-hero__title">{job.title}</h1>
+                <span className={`badge ${catClass}`}>{job.category}</span>
+              </div>
+              <p className="job-details-hero__subtitle">
+                Responsive landing page for a product launch. Tech stack: React or Next.js.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {job.status === 'work_submitted' ? (
+                <Link to={`/jobs/${job.id}/review`} className="btn btn-primary">
+                  Review Submission
+                </Link>
+              ) : job.status === 'funded' ? (
+                <Link to={`/jobs/${job.id}/progress`} className="btn btn-primary">
+                  View Progress
+                </Link>
+              ) : (
+                <Link to={`/escrow/${job.id}/fund`} className="btn btn-primary">
+                  Apply for Job
+                </Link>
+              )}
+            </div>
           </div>
-          <Link to={`/escrow/${job.id}/fund`} className="btn btn-primary">Apply for Job</Link>
+
+          {/* Meta Stats Row */}
+          <div className="meta-stats-row">
+            <div className="meta-stat">
+              <span className="meta-stat__icon">🪙</span>
+              <div>
+                <div className="meta-stat__label">Budget</div>
+                <div className="meta-stat__val">{job.budget} ETH</div>
+              </div>
+            </div>
+
+            <div className="meta-stat">
+              <span className="meta-stat__icon">🕒</span>
+              <div>
+                <div className="meta-stat__label">Posted</div>
+                <div className="meta-stat__val">{job.postedText || `${job.postedDays} days ago`}</div>
+              </div>
+            </div>
+
+            <div className="meta-stat">
+              <span className="meta-stat__icon">📅</span>
+              <div>
+                <div className="meta-stat__label">Deadline</div>
+                <div className="meta-stat__val">{job.deadlineDays || `${job.deadline} days`}</div>
+              </div>
+            </div>
+
+            <div className="meta-stat">
+              <span className="meta-stat__icon">🏷️</span>
+              <div>
+                <div className="meta-stat__label">Proposals</div>
+                <div className="meta-stat__val">{job.proposals}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="stats-row">
-          <div className="stat-card">
-            <p className="stat-card__label">Budget</p>
-            <p className="stat-card__value purple">{job.budget} ETH</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card__label">Posted</p>
-            <p className="stat-card__value">{job.postedDays} days ago</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card__label">Deadline</p>
-            <p className="stat-card__value">{job.deadline} days</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card__label">Proposals</p>
-            <p className="stat-card__value">{job.proposals}</p>
-          </div>
-        </div>
-
-        <div className="job-details-layout">
-          {/* Main */}
+        {/* Two Columns Layout */}
+        <div className="job-details-columns">
+          {/* Left Column */}
           <div className="card">
-            <h2 className="job-details-body__title">Job Description</h2>
-            <p className="job-details-body__text">{job.description_full}</p>
-            <h3 className="job-details-body__title" style={{marginTop: '1.5rem'}}>Requirements</h3>
-            <ul className="requirements-list">
-              {job.requirements.map((r, i) => <li key={i}>{r}</li>)}
+            {/* Client Section */}
+            <h2 className="section-subtitle">Client</h2>
+            <div className="client-meta-box">
+              <div className="client-meta-box__avatar">{avatarLetter}</div>
+              <div>
+                <div className="client-meta-box__addr">{clientShort}</div>
+                <div className="client-meta-box__since">Member since Jan 2024</div>
+              </div>
+            </div>
+
+            {/* Job Description */}
+            <h2 className="section-subtitle">Job Description</h2>
+            <p style={{ fontSize: '0.925rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              {job.description_full}
+            </p>
+
+            {/* Requirements */}
+            <h2 className="section-subtitle">Requirements</h2>
+            <ul className="checklist-items">
+              {job.requirements.map((req, i) => (
+                <li key={i} className="checklist-item">
+                  <span className="checklist-item__check">✓</span>
+                  <span>{req}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Sidebar */}
+          {/* Right Column: Payment Details */}
           <div>
-            {/* Client */}
-            <div className="card client-card">
-              <h3 style={{fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem'}}>Client Information</h3>
-              <div className="client-card__header">
-                <div className="client-avatar">{initials}</div>
-                <div>
-                  <p className="client-name">{formatAddress(job.clientAddress)}</p>
-                  <p className="client-since">Member since Jan 2024</p>
-                </div>
+            <div className="payment-card">
+              <h2 className="section-subtitle" style={{ marginBottom: 0 }}>Payment Details</h2>
+              <div>
+                <div className="payment-card__amount">{job.budget} ETH</div>
+                <div className="payment-card__usd">(~ ${job.budgetUSD || Math.round(job.budget * 1700)})</div>
               </div>
-              <p className="client-address">{job.clientAddress}</p>
-            </div>
 
-            {/* Payment */}
-            <div className="card">
-              <h3 style={{fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1rem'}}>Payment Details</h3>
-              <p className="payment-amount">{job.budget} ETH</p>
-              <p className="payment-usd">≈ ${job.budgetUSD} USD</p>
-              <p className="payment-note">
-                Payment will be held in a smart contract and released after work approval.
-              </p>
+              <div className="payment-lock-banner">
+                <span style={{ fontSize: '1rem' }}>🔒</span>
+                <span>Payment will be held in a smart contract and released after work approval.</span>
+              </div>
+
+              {job.status === 'open' ? (
+                <Link to={`/escrow/${job.id}/fund`} className="btn btn-primary btn-full">
+                  Fund Escrow
+                </Link>
+              ) : (
+                <Link to={`/jobs/${job.id}/progress`} className="btn btn-outline btn-full">
+                  Check Escrow Progress
+                </Link>
+              )}
             </div>
           </div>
         </div>

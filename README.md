@@ -1,79 +1,83 @@
-# DecentraEscrow – Decentralized Escrow Marketplace
+# DecentraEscrow — Decentralized Freelancing Escrow Marketplace
 
-## Project Title and Overview
-Freelancers and clients often face payment disputes: payments are made upfront without guarantees of delivery, or work is delivered without being paid. **DecentraEscrow** solves this problem with a blockchain‑based escrow smart contract that holds funds in trust until predefined conditions are met, providing transparent, immutable, and automated payment settlements.
+A trust-minimized freelancing escrow platform powered by Ethereum smart contracts. DecentraEscrow eliminates payment uncertainty for freelancers and upfront delivery risk for clients by holding funds in programmatic escrow until work is delivered and approved.
 
-## Key Features
-- **Job Marketplace** – Post, browse, and apply for freelance jobs.
-- **Client Workflow** – Create a job, fund the escrow via MetaMask, and release payment after work approval.
-- **Freelancer Workflow** – Accept a job, submit deliverables, and claim payment once the client releases the escrow.
-- **MetaMask Integration** – All blockchain interactions are performed through MetaMask.
-- **Escrow Funding & Conditional Release** – Funds are locked in the Solidity contract and released only after the client confirms completion.
-- **Refunds** – Clients can reclaim funds if the job is cancelled before acceptance.
-- **Transaction Verification** – Every operation (deposit, release, refund) is recorded on the Sepolia testnet and can be inspected via ethers.js.
+---
 
-> **Implemented** – All UI pages, wallet handling, and contract interaction are functional on the Sepolia testnet.
-> **Planned** – Full test suite, multi‑currency support, and advanced dispute resolution.
+## 🌟 Visual Mockup Alignment
 
-## Tech Stack
+The frontend implementation strictly matches the 8 screens specified in the project mockups and `DecentraEscrow.md`:
+
+1. **Home Page (Landing):** Hero section with 3D isometric Ethereum shield graphic, value proposition, and 4 core value proposition feature cards.
+2. **Browse Jobs:** Search bar, categorical breakdown with item counts, sort options, and detailed job cards with budget, client info, and "View Details".
+3. **Job Details:** Meta chips (Budget, Posted, Deadline, Proposals), client credentials, full job description, requirements checklist, and payment security card.
+4. **Create a Job (Client):** Form for posting job title, description, category, budget (ETH), and delivery deadline.
+5. **Escrow Funding:** 3-step progress stepper (Details → Fund Escrow → Confirm), wallet deposit details table, Sepolia network badge, and MetaMask deposit action.
+6. **Job Progress (Freelancer):** 4-stage vertical timeline (Escrow Funded, Work Submitted, Client Review, Payment Release) and deliverable submission box.
+7. **Client Review:** Interactive browser preview frame ("Build Something Amazing"), deliverable GitHub link, freelancer message, and Approve & Release / Raise Dispute actions.
+8. **Transaction Success:** Celebration checkmark with confetti particles, transaction summary table, Sepolia testnet hash link, and explorer navigation.
+
+---
+
+## 🛠️ Technology Stack
+
 | Layer | Technology |
-|------|------------|
-| Frontend | React, Vite, JavaScript, React Router, CSS (black & purple theme) |
-| Smart Contract | Solidity (Escrow contract) |
-| Blockchain Interaction | ethers.js, MetaMask |
-| Development Tools | Remix IDE (contract editing), Node.js, npm |
-| Network | Ethereum Sepolia Testnet |
+|---|---|
+| **Smart Contract** | Solidity (`^0.8.20`) with ReentrancyGuard and Access Control |
+| **Frontend Framework** | React 18, Vite |
+| **Styling** | Vanilla CSS (Modern light Web3 theme, Plus Jakarta Sans, Inter) |
+| **Web3 Provider** | ethers.js (`v6.7.0`), MetaMask |
+| **Network** | Ethereum Sepolia Testnet (Chain ID `11155111`) |
 
-## Prerequisites
-- **Git** – to clone the repository.
-- **Node.js (>= 18)** and **npm** – for dependency management and script execution.
-- **MetaMask** browser extension – connected to the Sepolia testnet.
+---
 
-## Setup Instructions
+## 📜 Smart Contract Architecture (`contracts/DecentraEscrow.sol`)
+
+The contract enforces the following state lifecycle:
+
+```
+Created  ──>  Funded  ──>  WorkSubmitted  ──>  Approved (Funds Released)
+   │             │              │
+   │             ▼              ▼
+   └─────>   Refunded        Disputed  ──>  Resolved
+```
+
+### Core Functions
+
+- `createEscrow(uint256 _jobId, string _title, address payable _freelancer, uint256 _amount, uint256 _deadline)`
+- `fundEscrow(uint256 _jobId)` (payable)
+- `createAndFundEscrow(uint256 _jobId, string _title, address payable _freelancer, uint256 _deadline)` (payable)
+- `submitWork(uint256 _jobId, string _submissionUrl, string _submissionMessage)`
+- `approveAndReleasePayment(uint256 _jobId)`
+- `refund(uint256 _jobId)`
+- `raiseDispute(uint256 _jobId, string _reason)`
+- `resolveDispute(uint256 _jobId, bool _releaseToFreelancer)`
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
 ```bash
-# 1️⃣ Clone the repo
-git clone https://github.com/Neeraja100/DecentraEscrow.git
-cd DecentraEscrow
-
-# 2️⃣ Install dependencies
 npm install
-
-# 3️⃣ (Optional) Create a .env file if you need custom env vars.
-#    The project currently works without additional variables,
-#    but you may add e.g. REACT_APP_SEPOLIA_RPC_URL if desired.
 ```
 
-## Running the Application
+### 2. Run the Development Server
 ```bash
-# Development server (Vite)
 npm run dev
-# → Open http://localhost:3000 in your browser
-
-# Production build
-npm run build
-
-# Preview the production build locally
-npm run preview
 ```
-The app runs on `http://localhost:3000` (or the port shown by Vite). Ensure MetaMask is unlocked and set to the **Sepolia** network before interacting with the escrow contract.
+Open `http://localhost:5173` (or the port shown in terminal) in your browser.
 
-## Dashboard Overview
-| Dashboard | Description |
-|-----------|-------------|
-| **Client Dashboard** | View posted jobs, fund escrow, monitor escrow status, and release or refund payments. |
-| **Freelancer Dashboard** | Browse accepted jobs, see escrow balance, submit deliverables, and claim released funds. |
-| **Marketplace** | Browse all open jobs, filter by budget or status, and apply to jobs. |
-| **Escrow Workflow** | Funds are deposited into `DecentralizedEscrow.sol`, locked until the client calls `releasePayment`. Refunds are possible before job acceptance. |
-| **Transaction History** | All escrow‑related transactions (deposit, release, refund) are displayed with transaction hashes, timestamps, and statuses. |
+### 3. Build for Production
+```bash
+npm run build
+```
 
-## Project Goal
-Provide a **transparent, rule‑based platform** for freelance payments where trust is enforced by smart‑contract logic rather than third‑party intermediaries. The prototype demonstrates end‑to‑end escrow flow on a public testnet.
+---
 
-## Team
-- Tejas
-- Harshit
-- Nupur
-- Neeraja
+## 👥 Team Responsibilities (as per PRD)
 
-## License
-This repository is an **educational prototype**. Unless a specific license file is added later, the code is provided **as‑is** for learning and experimentation only.
+- **Tejas:** Smart Contract Development (`contracts/DecentraEscrow.sol`, state machine, access control)
+- **Harshit:** Blockchain Deployment & Integration (MetaMask, ethers.js, Sepolia testnet)
+- **Nupur:** Frontend & User Experience (React components, UI mockups, responsive design)
+- **Neeraja:** Product Workflow, Testing Coordination, and Documentation
