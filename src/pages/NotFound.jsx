@@ -1,14 +1,16 @@
 // src/pages/NotFound.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import '../styles/pages.css';
 
 const NotFound = () => (
-  <section className="not-found">
-    <h1>404 – Page Not Found</h1>
-    <p>Sorry, the page you are looking for does not exist.</p>
-    <Link to="/" className="button primary">Go Home</Link>
-  </section>
+  <main className="page-wrapper">
+    <div className="container notfound-page">
+      <div className="notfound-code">404</div>
+      <h1 className="notfound-title">Page Not Found</h1>
+      <p className="notfound-sub">The page you're looking for doesn't exist or has been moved.</p>
+      <Link to="/" className="btn btn-primary">Go Home</Link>
+    </div>
+  </main>
 );
 
 export default NotFound;

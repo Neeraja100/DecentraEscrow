@@ -1,21 +1,25 @@
 // src/components/StatusBadge.jsx
 import React from 'react';
-import '../styles/components.css';
 
-const statusColors = {
-  Pending: '#fbbf24', // amber
-  Funded: '#34d399', // green
-  Completed: '#60a5fa', // blue
-  Disputed: '#f87171', // red
+const STATUS_MAP = {
+  Funded: 'status-funded',
+  'Work Submitted': 'status-submitted',
+  'Under Review': 'status-review',
+  Completed: 'status-completed',
+  Disputed: 'status-disputed',
+  Open: 'status-open',
+  open: 'status-open',
+  funded: 'status-funded',
+  submitted: 'status-submitted',
+  review: 'status-review',
+  completed: 'status-completed',
+  disputed: 'status-disputed',
 };
 
-const StatusBadge = ({ status }) => (
-  <span
-    className="status-badge"
-    style={{ backgroundColor: statusColors[status] || '#d1d5db' }}
-  >
-    {status || 'Unknown'}
-  </span>
-);
+const StatusBadge = ({ status }) => {
+  const cls = STATUS_MAP[status] || 'status-open';
+  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+  return <span className={`status-badge ${cls}`}>{label}</span>;
+};
 
 export default StatusBadge;

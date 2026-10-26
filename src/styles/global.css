@@ -1,68 +1,146 @@
 /* src/styles/global.css */
-/* Black & Purple theme – base layout and typography */
 :root {
-  --bg-color: #0a0a0a;           /* deep black */
-  --primary-color: #6a0dad;      /* rich purple */
-  --secondary-color: #9b4bcc;    /* lighter purple */
-  --accent-color: #c084fc;       /* soft accent for hover */
-  --text-color: #f5f5f5;        /* light gray for readability */
-  --border-radius: 8px;
-  --transition-speed: 0.2s;
-  --max-content-width: 1200px;
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-card: #1e1e35;
+  --bg-card-hover: #252545;
+  --purple-primary: #7c3aed;
+  --purple-hover: #8b5cf6;
+  --purple-light: #a78bfa;
+  --purple-dim: rgba(124,58,237,0.15);
+  --purple-border: rgba(124,58,237,0.25);
+  --purple-border-strong: rgba(124,58,237,0.5);
+  --text-primary: #ffffff;
+  --text-secondary: #e2e8f0;
+  --text-muted: #9ca3af;
+  --green: #10b981;
+  --green-bg: rgba(16,185,129,0.1);
+  --green-border: rgba(16,185,129,0.3);
+  --red: #ef4444;
+  --red-bg: rgba(239,68,68,0.1);
+  --red-border: rgba(239,68,68,0.3);
+  --yellow: #f59e0b;
+  --yellow-bg: rgba(245,158,11,0.1);
+  --blue: #3b82f6;
+  --blue-bg: rgba(59,130,246,0.1);
+  --border-radius: 1rem;
+  --border-radius-sm: 0.5rem;
+  --transition: 0.2s ease;
+  --max-width: 1200px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
 }
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: 'Inter', sans-serif;
-  line-height: 1.5;
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
 }
 
-* {
-  box-sizing: border-box;
-}
+#root { display: flex; flex-direction: column; min-height: 100vh; }
 
-a {
-  color: var(--primary-color);
-  text-decoration: none;
-}
+a { color: var(--purple-light); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--purple-hover); }
 
-a:hover {
-  color: var(--accent-color);
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  border-radius: var(--border-radius);
-  padding: 0.6rem 1.2rem;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: background-color var(--transition-speed);
-}
-
-.button {
-  background-color: var(--primary-color);
-  color: var(--text-color);
-}
-
-.button.primary {
-  background-color: var(--primary-color);
-}
-
-.button.secondary {
-  background-color: var(--secondary-color);
-}
-
-.button:hover {
-  background-color: var(--accent-color);
-}
+button { cursor: pointer; font-family: inherit; }
 
 .container {
-  max-width: var(--max-content-width);
+  max-width: var(--max-width);
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0 1.5rem;
 }
+
+.page-wrapper {
+  flex: 1;
+  padding-top: 4.5rem;
+}
+
+/* Utility buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  transition: all var(--transition);
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--purple-primary);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--purple-hover); color: #fff; }
+.btn-outline {
+  background: transparent;
+  color: var(--purple-light);
+  border: 1.5px solid var(--purple-border-strong);
+}
+.btn-outline:hover { background: var(--purple-dim); color: #fff; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #059669; color: #fff; }
+.btn-red-outline {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1.5px solid var(--red-border);
+}
+.btn-red-outline:hover { background: rgba(239,68,68,0.2); }
+.btn-full { width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; }
+.btn-sm { padding: 0.4rem 0.9rem; font-size: 0.85rem; }
+
+/* Card */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.card:hover { border-color: var(--purple-border-strong); box-shadow: 0 8px 32px rgba(124,58,237,0.15); }
+
+/* Form elements */
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem; }
+.form-label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); }
+.form-input, .form-textarea, .form-select {
+  background: rgba(15,15,26,0.8);
+  border: 1px solid var(--purple-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-primary);
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  outline: none;
+}
+.form-input:focus, .form-textarea:focus, .form-select:focus {
+  border-color: var(--purple-primary);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+}
+.form-textarea { resize: vertical; min-height: 120px; }
+.form-select { appearance: none; cursor: pointer; }
+.form-select option { background: var(--bg-card); }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.badge-purple { background: rgba(124,58,237,0.2); color: var(--purple-light); border: 1px solid rgba(124,58,237,0.3); }
+.badge-blue { background: var(--blue-bg); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+.badge-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+.badge-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+.badge-gray { background: rgba(156,163,175,0.15); color: var(--text-muted); border: 1px solid rgba(156,163,175,0.2); }

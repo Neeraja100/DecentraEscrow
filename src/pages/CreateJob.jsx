@@ -1,33 +1,105 @@
 // src/pages/CreateJob.jsx
-import React from 'react';
-import '../styles/pages.css';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const CreateJob = () => (
-  <section className="create-job">
-    <h1>Create Job (Demo)</h1>
-    <p>This UI demonstrates the job creation form layout. Persistent storage is not yet implemented.</p>
-    <form className="job-form">
-      <label>
-        Title:
-        <input type="text" placeholder="Job title" required />
-      </label>
-      <label>
-        Description:
-        <textarea placeholder="Job description" required />
-      </label>
-      <label>
-        Budget (ETH):
-        <input type="number" step="0.01" placeholder="0.1" required />
-      </label>
-      <label>
-        Deadline:
-        <input type="date" required />
-      </label>
-      <button type="submit" className="button primary" disabled>
-        Submit (demo placeholder)
-      </button>
-    </form>
-  </section>
-);
+const CATEGORIES = ['Web Development', 'UI/UX Design', 'Content Writing', 'Data Analysis', 'Other'];
+
+const CreateJob = () => {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ title: '', description: '', category: '', budget: '', deadline: '' });
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => navigate('/marketplace'), 1200);
+  };
+
+  return (
+    <main className="page-wrapper">
+      <div className="container create-job-page">
+        <div className="create-job-page__inner">
+          <h1 className="create-job-page__title">Post a New Job</h1>
+          <p className="create-job-page__sub">
+            Specify the details and lock the payment in escrow after selecting a freelancer.
+          </p>
+
+          <form className="card" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Job Title</label>
+              <input
+                className="form-input"
+                name="title"
+                placeholder="e.g. Build a landing page for SaaS app"
+                value={form.title}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Description</label>
+              <textarea
+                className="form-textarea"
+                name="description"
+                placeholder="Describe the work, deliverables, and expectations..."
+                value={form.description}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select
+                className="form-select"
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select a category</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Budget (ETH)</label>
+              <input
+                className="form-input"
+                name="budget"
+                type="number"
+                step="0.001"
+                min="0.001"
+                placeholder="0.05"
+                value={form.budget}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Deadline</label>
+              <input
+                className="form-input"
+                name="deadline"
+                type="date"
+                value={form.deadline}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary btn-full"
+              disabled={submitted}
+              style={{marginTop: '0.5rem'}}
+            >
+              {submitted ? '✓ Job Created!' : 'Create Job'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+};
 
 export default CreateJob;
