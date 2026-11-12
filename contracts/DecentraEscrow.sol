@@ -1,35 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-/**
- * @title DecentraEscrow
- * @dev Decentralized freelancing escrow smart contract for the DecentraEscrow platform.
- *      Enforces secure client deposits, conditional payment releases to freelancers,
- *      and transparent refund / dispute resolution on Ethereum (Sepolia Testnet).
- *
- * Team: Tejas (Smart Contract Lead), Harshit (Deployment & Integration),
- *       Nupur (Frontend & UX), Neeraja (Workflow, Testing & Documentation)
- */
 contract DecentraEscrow {
 
-    // --- State Definitions ---
+    // --- Escrow statuses ---
     enum EscrowStatus {
-        Created,        // Escrow initialized but not yet funded
-        Funded,         // Client has deposited ETH into escrow
-        WorkSubmitted,  // Freelancer has submitted delivery details/URL
-        Approved,       // Client approved the delivery, funds released to freelancer
-        Refunded,       // Funds refunded back to client (e.g. deadline expired)
-        Disputed,       // Client or freelancer raised a dispute
-        Resolved        // Dispute resolved by arbiter
+        Created,
+        Funded,
+        WorkSubmitted,
+        Approved,
+        Refunded,
+        Disputed,
+        Resolved
     }
 
+    // --- Escrow data ---
     struct Escrow {
         uint256 jobId;
         string title;
         address payable client;
         address payable freelancer;
-        uint256 amount;
-        uint256 deadline;       // Unix timestamp
+        uint256 amount;          // in wei
+        uint256 deadline;        // unix timestamp
         EscrowStatus status;
         string submissionUrl;
         string submissionMessage;
@@ -40,14 +32,9 @@ contract DecentraEscrow {
         uint256 completedAt;
     }
 
-    // Platform Arbiter (e.g. for dispute resolution)
     address public arbiter;
-
-    // Mapping from jobId to Escrow details
     mapping(uint256 => Escrow) public escrows;
     uint256[] public jobIds;
-
-    // Mutex guard against reentrancy
     bool private _locked;
 
     // --- Events ---
@@ -68,30 +55,30 @@ contract DecentraEscrow {
     }
 
     modifier onlyClient(uint256 _jobId) {
-        require(msg.sender == escrows[_jobId].client, "DecentraEscrow: Only client can call this");
+        require(msg.sender == escrows[_jobId].client, "Only client can call this");
         _;
     }
 
     modifier onlyFreelancer(uint256 _jobId) {
-        require(msg.sender == escrows[_jobId].freelancer, "DecentraEscrow: Only freelancer can call this");
+        require(msg.sender == escrows[_jobId].freelancer, "Only freelancer can call this");
         _;
     }
 
     modifier onlyParties(uint256 _jobId) {
         require(
             msg.sender == escrows[_jobId].client || msg.sender == escrows[_jobId].freelancer,
-            "DecentraEscrow: Only client or freelancer can call this"
+            "Only client or freelancer can call this"
         );
         _;
     }
 
     modifier onlyArbiter() {
-        require(msg.sender == arbiter, "DecentraEscrow: Only arbiter can call this");
+        require(msg.sender == arbiter, "Only arbiter can call this");
         _;
     }
 
     modifier inStatus(uint256 _jobId, EscrowStatus _expected) {
-        require(escrows[_jobId].status == _expected, "DecentraEscrow: Invalid escrow status");
+        require(escrows[_jobId].status == _expected, "Invalid escrow status for this action");
         _;
     }
 
@@ -99,9 +86,7 @@ contract DecentraEscrow {
         arbiter = msg.sender;
     }
 
-    /**
-     * @notice Create a new escrow agreement without immediate funding.
-     */
+    // --- Create escrow without immediate funding ---
     function createEscrow(
         uint256 _jobId,
         string calldata _title,
@@ -109,10 +94,11 @@ contract DecentraEscrow {
         uint256 _amount,
         uint256 _deadline
     ) external {
-        require(escrows[_jobId].client == address(0), "DecentraEscrow: Job ID already exists");
-        require(_freelancer != address(0), "DecentraEscrow: Invalid freelancer address");
-        require(_freelancer != msg.sender, "DecentraEscrow: Freelancer cannot be client");
-        require(_amount > 0, "DecentraEscrow: Amount must be greater than zero");
+        require(escrows[_jobId].client == address(0), "Job ID already exists");
+        require(_freelancer != address(0), "Invalid freelancer address");
+        require(_freelancer != msg.sender, "Client and freelancer cannot be same");
+        require(_amount > 0, "Amount must be > 0");
+        require(_deadline > block.timestamp, "Deadline must be in future");
 
         escrows[_jobId] = Escrow({
             jobId: _jobId,
@@ -132,42 +118,21 @@ contract DecentraEscrow {
         });
 
         jobIds.push(_jobId);
-
         emit EscrowCreated(_jobId, msg.sender, _freelancer, _amount, _deadline);
     }
 
-    /**
-     * @notice Client deposits ETH into the escrow for an existing job.
-     */
-    function fundEscrow(uint256 _jobId)
-        external
-        payable
-        onlyClient(_jobId)
-        inStatus(_jobId, EscrowStatus.Created)
-        nonReentrant
-    {
-        Escrow storage escrow = escrows[_jobId];
-        require(msg.value == escrow.amount, "DecentraEscrow: Sent value must match agreed amount");
-
-        escrow.status = EscrowStatus.Funded;
-        escrow.fundedAt = block.timestamp;
-
-        emit EscrowFunded(_jobId, msg.sender, msg.value, block.timestamp);
-    }
-
-    /**
-     * @notice Convenience function to create and fund an escrow in a single transaction.
-     */
+    // --- Create and fund escrow simultaneously ---
     function createAndFundEscrow(
         uint256 _jobId,
         string calldata _title,
         address payable _freelancer,
         uint256 _deadline
     ) external payable nonReentrant {
-        require(escrows[_jobId].client == address(0), "DecentraEscrow: Job ID already exists");
-        require(_freelancer != address(0), "DecentraEscrow: Invalid freelancer address");
-        require(_freelancer != msg.sender, "DecentraEscrow: Freelancer cannot be client");
-        require(msg.value > 0, "DecentraEscrow: Amount must be greater than zero");
+        require(escrows[_jobId].client == address(0), "Job ID already exists");
+        require(_freelancer != address(0), "Invalid freelancer address");
+        require(_freelancer != msg.sender, "Client and freelancer cannot be same");
+        require(msg.value > 0, "Funding amount must be > 0");
+        require(_deadline > block.timestamp, "Deadline must be in future");
 
         escrows[_jobId] = Escrow({
             jobId: _jobId,
@@ -187,14 +152,26 @@ contract DecentraEscrow {
         });
 
         jobIds.push(_jobId);
-
         emit EscrowCreated(_jobId, msg.sender, _freelancer, msg.value, _deadline);
         emit EscrowFunded(_jobId, msg.sender, msg.value, block.timestamp);
     }
 
-    /**
-     * @notice Freelancer submits deliverables (URL and message).
-     */
+    // --- Fund an existing escrow ---
+    function fundEscrow(uint256 _jobId)
+        external
+        payable
+        onlyClient(_jobId)
+        inStatus(_jobId, EscrowStatus.Created)
+        nonReentrant
+    {
+        Escrow storage escrow = escrows[_jobId];
+        require(msg.value == escrow.amount, "Funding value mismatch");
+        escrow.status = EscrowStatus.Funded;
+        escrow.fundedAt = block.timestamp;
+        emit EscrowFunded(_jobId, msg.sender, msg.value, block.timestamp);
+    }
+
+    // --- Freelancer submits work ---
     function submitWork(
         uint256 _jobId,
         string calldata _submissionUrl,
@@ -204,21 +181,16 @@ contract DecentraEscrow {
         onlyFreelancer(_jobId)
         inStatus(_jobId, EscrowStatus.Funded)
     {
-        bytes memory urlBytes = bytes(_submissionUrl);
-        require(urlBytes.length > 0, "DecentraEscrow: Submission URL is required");
-
+        require(bytes(_submissionUrl).length > 0, "Submission URL required");
         Escrow storage escrow = escrows[_jobId];
-        escrow.status = EscrowStatus.WorkSubmitted;
         escrow.submissionUrl = _submissionUrl;
         escrow.submissionMessage = _submissionMessage;
+        escrow.status = EscrowStatus.WorkSubmitted;
         escrow.submittedAt = block.timestamp;
-
         emit WorkSubmitted(_jobId, msg.sender, _submissionUrl, block.timestamp);
     }
 
-    /**
-     * @notice Client reviews and approves submitted work, releasing locked funds to freelancer.
-     */
+    // --- Client approves work and releases payment ---
     function approveAndReleasePayment(uint256 _jobId)
         external
         onlyClient(_jobId)
@@ -228,17 +200,13 @@ contract DecentraEscrow {
         Escrow storage escrow = escrows[_jobId];
         escrow.status = EscrowStatus.Approved;
         escrow.completedAt = block.timestamp;
-
-        uint256 paymentAmount = escrow.amount;
-        (bool sent, ) = escrow.freelancer.call{value: paymentAmount}("");
-        require(sent, "DecentraEscrow: Failed to send Ether to freelancer");
-
-        emit PaymentReleased(_jobId, escrow.freelancer, paymentAmount, block.timestamp);
+        uint256 amountToPay = escrow.amount;
+        (bool sent, ) = escrow.freelancer.call{value: amountToPay}("");
+        require(sent, "Failed to transfer payment");
+        emit PaymentReleased(_jobId, escrow.freelancer, amountToPay, block.timestamp);
     }
 
-    /**
-     * @notice Client can request a full refund if the deadline has passed without work submission.
-     */
+    // --- Refund to client if deadline passed without submission ---
     function refund(uint256 _jobId)
         external
         onlyClient(_jobId)
@@ -246,43 +214,32 @@ contract DecentraEscrow {
         nonReentrant
     {
         Escrow storage escrow = escrows[_jobId];
-        require(
-            block.timestamp > escrow.deadline || escrow.deadline == 0,
-            "DecentraEscrow: Deadline has not passed yet"
-        );
-
+        require(block.timestamp > escrow.deadline, "Deadline not passed yet");
         escrow.status = EscrowStatus.Refunded;
         escrow.completedAt = block.timestamp;
-
         uint256 refundAmount = escrow.amount;
         (bool sent, ) = escrow.client.call{value: refundAmount}("");
-        require(sent, "DecentraEscrow: Failed to send refund to client");
-
+        require(sent, "Failed to send refund");
         emit EscrowRefunded(_jobId, escrow.client, refundAmount, block.timestamp);
     }
 
-    /**
-     * @notice Raise a dispute if either party disagrees with delivery or payment.
-     */
+    // --- Raise dispute by client or freelancer ---
     function raiseDispute(uint256 _jobId, string calldata _reason)
         external
         onlyParties(_jobId)
     {
         Escrow storage escrow = escrows[_jobId];
+        // Allow dispute only if Funded or WorkSubmitted
         require(
             escrow.status == EscrowStatus.Funded || escrow.status == EscrowStatus.WorkSubmitted,
-            "DecentraEscrow: Cannot dispute at this stage"
+            "Dispute not allowed at this stage"
         );
-
         escrow.status = EscrowStatus.Disputed;
         escrow.disputeReason = _reason;
-
         emit DisputeRaised(_jobId, msg.sender, _reason, block.timestamp);
     }
 
-    /**
-     * @notice Arbiter resolves dispute by sending funds to either freelancer or client.
-     */
+    // --- Arbiter resolves dispute and sends funds accordingly ---
     function resolveDispute(uint256 _jobId, bool _releaseToFreelancer)
         external
         onlyArbiter
@@ -292,27 +249,20 @@ contract DecentraEscrow {
         Escrow storage escrow = escrows[_jobId];
         escrow.status = EscrowStatus.Resolved;
         escrow.completedAt = block.timestamp;
-
         address payable recipient = _releaseToFreelancer ? escrow.freelancer : escrow.client;
         uint256 amount = escrow.amount;
-
         (bool sent, ) = recipient.call{value: amount}("");
-        require(sent, "DecentraEscrow: Dispute resolution transfer failed");
-
+        require(sent, "Dispute resolution transfer failed");
         emit DisputeResolved(_jobId, recipient, amount, block.timestamp);
     }
 
-    /**
-     * @notice Read complete escrow details for a job.
-     */
+    // --- View escrow details ---
     function getEscrow(uint256 _jobId) external view returns (Escrow memory) {
-        require(escrows[_jobId].client != address(0), "DecentraEscrow: Escrow not found");
+        require(escrows[_jobId].client != address(0), "Escrow not found");
         return escrows[_jobId];
     }
 
-    /**
-     * @notice Returns total number of registered escrows.
-     */
+    // --- Total escrow count ---
     function getEscrowCount() external view returns (uint256) {
         return jobIds.length;
     }
