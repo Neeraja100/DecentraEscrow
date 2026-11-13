@@ -12,12 +12,14 @@ const JobDetails = () => {
     getJob,
     applyForJob,
     getApplications,
+    selectFreelancer,
   } = useEscrow();
 
   const {
     account,
     isConnected,
     connectWallet,
+    signer,
   } = useContext(WalletContext);
 
   const [proposal, setProposal] = useState('');
@@ -63,6 +65,12 @@ const JobDetails = () => {
 
   const applications = getApplications(id) || [];
 
+  // Check whether the connected wallet owns this job
+  const isJobOwner =
+    account &&
+    job.clientAddress &&
+    account.toLowerCase() === job.clientAddress.toLowerCase();
+
   const hasApplied =
     isConnected &&
     applications.some(
@@ -71,6 +79,7 @@ const JobDetails = () => {
         account?.toLowerCase()
     );
 
+  // Freelancer application handler
   const handleApply = () => {
     if (!isConnected) {
       connectWallet();
@@ -104,6 +113,51 @@ const JobDetails = () => {
     } catch (error) {
       setApplicationMessage(
         error.message || 'Unable to submit your application.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Client selects a freelancer
+  const handleSelectFreelancer = async (application) => {
+    if (!isConnected) {
+      await connectWallet();
+      return;
+    }
+
+    if (!isJobOwner) {
+      setApplicationMessage(
+        'Only the client who created this job can select a freelancer.'
+      );
+      return;
+    }
+
+    if (!signer) {
+      setApplicationMessage(
+        'Wallet signer is unavailable. Please reconnect MetaMask.'
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Are you sure you want to select this freelancer? This will initiate the escrow creation and funding transaction on Sepolia.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsSubmitting(true);
+      setApplicationMessage('');
+
+      await selectFreelancer(job.id, application.id, signer);
+
+      setApplicationMessage(
+        'Freelancer selected successfully! Escrow transaction completed.'
+      );
+    } catch (error) {
+      setApplicationMessage(
+        error.message || 'Unable to select freelancer.'
       );
     } finally {
       setIsSubmitting(false);
@@ -201,7 +255,8 @@ const JobDetails = () => {
                 <div className="meta-stat__label">Deadline</div>
                 <div className="meta-stat__val">
                   {job.deadlineDays ||
-                    `${job.deadline ?? 'Not specified'} days`}
+                    job.deadline ||
+                    'Not specified'}
                 </div>
               </div>
             </div>
@@ -278,6 +333,143 @@ const JobDetails = () => {
                 </li>
               ))}
             </ul>
+
+            {/* Client: Freelancer Applications */}
+            {isJobOwner && (
+              <section className="mt-10">
+                <h2 className="section-subtitle">
+                  Freelancer Applications ({applications.length})
+                </h2>
+
+                {applications.length === 0 ? (
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    No applications received for this job yet.
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem',
+                    }}
+                  >
+                    {applications.map((application) => (
+                      <div
+                        key={application.id}
+                        style={{
+                          padding: '1.25rem',
+                          borderRadius: '12px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: '1rem',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <div>
+                            <h3
+                              style={{
+                                fontWeight: 600,
+                                fontSize: '1rem',
+                              }}
+                            >
+                              Freelancer
+                            </h3>
+
+                            <p
+                              style={{
+                                fontSize: '0.8rem',
+                                color: 'var(--text-secondary)',
+                                marginTop: '0.4rem',
+                                wordBreak: 'break-all',
+                              }}
+                            >
+                              Wallet: {application.walletAddress}
+                            </p>
+                          </div>
+
+                          <span
+                            style={{
+                              fontSize: '0.8rem',
+                              color: 'var(--text-secondary)',
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {application.status || 'Pending'}
+                          </span>
+                        </div>
+
+                        <div style={{ marginTop: '1rem' }}>
+                          <h4
+                            style={{
+                              fontWeight: 600,
+                              marginBottom: '0.5rem',
+                            }}
+                          >
+                            Proposal
+                          </h4>
+
+                          <p
+                            style={{
+                              color: 'var(--text-secondary)',
+                              fontSize: '0.9rem',
+                              lineHeight: 1.6,
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            {application.proposal}
+                          </p>
+                        </div>
+
+                        {job.status === 'open' &&
+                          application.status !== 'rejected' &&
+                          application.status !== 'selected' && (
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() =>
+                                handleSelectFreelancer(application)
+                              }
+                              className="btn btn-primary"
+                              style={{ marginTop: '1.25rem' }}
+                            >
+                              {isSubmitting
+                                ? 'Processing...'
+                                : 'Select Freelancer'}
+                            </button>
+                          )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Application Feedback */}
+            {applicationMessage && (
+              <p
+                role="status"
+                style={{
+                  marginTop: '1rem',
+                  fontSize: '0.875rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.5,
+                }}
+              >
+                {applicationMessage}
+              </p>
+            )}
           </div>
 
           {/* Right Column: Payment Details */}
@@ -312,96 +504,96 @@ const JobDetails = () => {
 
               {/* Freelancer Application Section */}
               {job.status === 'open' ? (
-                <div
-                  id="apply-section"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem',
-                  }}
-                >
-                  <h2 className="section-subtitle">
-                    Apply for this Job
-                  </h2>
+                isJobOwner ? (
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    You posted this job. Review freelancer applications
+                    on the left.
+                  </p>
+                ) : (
+                  <div
+                    id="apply-section"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem',
+                    }}
+                  >
+                    <h2 className="section-subtitle">
+                      Apply for this Job
+                    </h2>
 
-                  {hasApplied ? (
-                    <p
-                      style={{
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.9rem',
-                      }}
-                    >
-                      You have already submitted an application
-                      for this job.
-                    </p>
-                  ) : (
-                    <>
-                      {!isConnected ? (
-                        <button
-                          type="button"
-                          onClick={connectWallet}
-                          className="btn btn-primary btn-full"
-                        >
-                          Connect Wallet to Apply
-                        </button>
-                      ) : (
-                        <>
-                          <p
-                            style={{
-                              fontSize: '0.8rem',
-                              color: 'var(--text-secondary)',
-                              wordBreak: 'break-all',
-                            }}
-                          >
-                            Applying from: {account}
-                          </p>
-
-                          <textarea
-                            value={proposal}
-                            onChange={(e) =>
-                              setProposal(e.target.value)
-                            }
-                            placeholder="Explain why you are suitable for this job..."
-                            rows={5}
-                            style={{
-                              width: '100%',
-                              padding: '0.85rem',
-                              borderRadius: '8px',
-                              border: '1px solid var(--border-color)',
-                              background: 'var(--bg-secondary)',
-                              color: 'var(--text-primary)',
-                              resize: 'vertical',
-                              font: 'inherit',
-                            }}
-                          />
-
+                    {hasApplied ? (
+                      <p
+                        style={{
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.9rem',
+                        }}
+                      >
+                        You have already submitted an application
+                        for this job.
+                      </p>
+                    ) : (
+                      <>
+                        {!isConnected ? (
                           <button
                             type="button"
-                            onClick={handleApply}
-                            disabled={isSubmitting}
+                            onClick={connectWallet}
                             className="btn btn-primary btn-full"
                           >
-                            {isSubmitting
-                              ? 'Submitting...'
-                              : 'Submit Application'}
+                            Connect Wallet to Apply
                           </button>
-                        </>
-                      )}
-                    </>
-                  )}
+                        ) : (
+                          <>
+                            <p
+                              style={{
+                                fontSize: '0.8rem',
+                                color: 'var(--text-secondary)',
+                                wordBreak: 'break-all',
+                              }}
+                            >
+                              Applying from: {account}
+                            </p>
 
-                  {applicationMessage && (
-                    <p
-                      role="status"
-                      style={{
-                        fontSize: '0.875rem',
-                        color: 'var(--text-secondary)',
-                      }}
-                    >
-                      {applicationMessage}
-                    </p>
-                  )}
-                </div>
+                            <textarea
+                              value={proposal}
+                              onChange={(e) =>
+                                setProposal(e.target.value)
+                              }
+                              placeholder="Explain why you are suitable for this job..."
+                              rows={5}
+                              style={{
+                                width: '100%',
+                                padding: '0.85rem',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                resize: 'vertical',
+                                font: 'inherit',
+                              }}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={handleApply}
+                              disabled={isSubmitting}
+                              className="btn btn-primary btn-full"
+                            >
+                              {isSubmitting
+                                ? 'Submitting...'
+                                : 'Submit Application'}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
               ) : (
                 <Link
                   to={`/jobs/${job.id}/progress`}

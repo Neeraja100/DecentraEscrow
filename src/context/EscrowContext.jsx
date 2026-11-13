@@ -126,8 +126,8 @@ export const EscrowProvider = ({ children }) => {
       ),
 
       // Placeholder information for local demo display only
-      clientAddress: null,
-      clientShort: null,
+      clientAddress: newJobData.clientAddress || null,
+      clientShort: newJobData.clientShort || null,
       freelancerAddress: null,
       freelancerShort: null,
 
@@ -316,9 +316,11 @@ export const EscrowProvider = ({ children }) => {
   };
 
   // Client selects a freelancer and creates + funds the escrow
+
   const selectFreelancer = async (jobId, applicationId, signer) => {
     const job = getJob(jobId);
 
+    // Validate job
     if (!job) {
       throw new Error('Job not found.');
     }
@@ -327,6 +329,29 @@ export const EscrowProvider = ({ children }) => {
       throw new Error('An escrow has already been created for this job.');
     }
 
+    if (job.status !== 'open') {
+      throw new Error('This job is no longer open for applications.');
+    }
+
+    // Validate client ownership
+    if (!signer) {
+      throw new Error('Wallet signer is unavailable. Please reconnect MetaMask.');
+    }
+
+    if (!job.clientAddress) {
+      throw new Error('Client wallet address is missing from this job.');
+    }
+
+    const connectedAddress = await signer.getAddress();
+
+    if (
+      connectedAddress.toLowerCase() !==
+      job.clientAddress.toLowerCase()
+    ) {
+      throw new Error('Only the client who created this job can select a freelancer.');
+    }
+
+    // Find selected application
     const application = getApplications(jobId).find(
       (item) => String(item.id) === String(applicationId)
     );
@@ -335,23 +360,81 @@ export const EscrowProvider = ({ children }) => {
       throw new Error('Application not found.');
     }
 
-    const deadlineTimestamp = Math.floor(
-      Date.now() / 1000
-    ) + (Number(job.deadline || 7) * 24 * 60 * 60);
+    if (
+      application.status === 'rejected' ||
+      application.status === 'selected'
+    ) {
+      throw new Error('This application has already been processed.');
+    }
 
+    // Validate freelancer address
+    if (!ethers.isAddress(application.walletAddress)) {
+      throw new Error('Freelancer wallet address is invalid.');
+    }
+
+    if (
+      application.walletAddress.toLowerCase() ===
+      job.clientAddress.toLowerCase()
+    ) {
+      throw new Error('The client cannot select their own wallet as freelancer.');
+    }
+
+    // Validate budget
+    const amountEth = Number(job.budget);
+
+    if (!Number.isFinite(amountEth) || amountEth <= 0) {
+      throw new Error('Please provide a valid job budget.');
+    }
+
+    // Convert the selected deadline into a Unix timestamp.
+    let deadlineDate;
+
+    if (
+      /^\d{4}-\d{2}-\d{2}$/.test(String(job.deadline))
+    ) {
+      // Date-picker value: YYYY-MM-DD.
+      // Set deadline to the end of that day in local time.
+      deadlineDate = new Date(`${job.deadline}T23:59:59`);
+    } else if (
+      /^\d+(\.\d+)?$/.test(String(job.deadline))
+    ) {
+      // Support older jobs that stored deadline as number of days.
+      deadlineDate = new Date(
+        Date.now() + Number(job.deadline) * 24 * 60 * 60 * 1000
+      );
+    } else {
+      deadlineDate = new Date(job.deadline);
+    }
+
+    if (Number.isNaN(deadlineDate.getTime())) {
+      throw new Error('Invalid job deadline.');
+    }
+
+    if (deadlineDate.getTime() <= Date.now()) {
+      throw new Error('The job deadline must be in the future.');
+    }
+
+    const deadlineTimestamp = Math.floor(
+      deadlineDate.getTime() / 1000
+    );
+
+    // Generate unique on-chain job ID
     const chainJobId = Date.now();
 
+    // Create and fund escrow on Sepolia
+    // The wallet will ask the client to confirm this transaction.
     const result = await createAndFundEscrow({
       jobId: chainJobId,
       title: job.title,
       freelancerAddress: application.walletAddress,
       deadline: deadlineTimestamp,
-      amountEth: job.budget,
+      amountEth,
       signer,
     });
 
     const now = new Date().toLocaleString('en-US');
 
+    // Update job only after successful transaction
     setJobs((prev) =>
       prev.map((item) =>
         String(item.id) === String(jobId)
@@ -373,16 +456,19 @@ export const EscrowProvider = ({ children }) => {
       )
     );
 
+    // Mark selected application and reject remaining applications
     setApplications((prev) => ({
       ...prev,
       [jobId]: (prev[jobId] || []).map((item) => ({
         ...item,
-        status: String(item.id) === String(applicationId)
-          ? 'selected'
-          : 'rejected',
+        status:
+          String(item.id) === String(applicationId)
+            ? 'selected'
+            : 'rejected',
       })),
     }));
 
+    // Save transaction details
     setLastTx({
       hash: result.hash,
       amount: `${job.budget} ETH`,
@@ -395,6 +481,7 @@ export const EscrowProvider = ({ children }) => {
 
     return result;
   };
+
 
   // Dispute transactions will be connected to the contract separately.
   const raiseDispute = async () => {

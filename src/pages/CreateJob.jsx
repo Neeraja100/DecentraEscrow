@@ -1,13 +1,28 @@
+
 // src/pages/CreateJob.jsx
-import React, { useState } from 'react';
+
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEscrow } from '../context/EscrowContext.jsx';
+import { WalletContext } from '../context/WalletContext.jsx';
 
-const CATEGORIES = ['Web Development', 'UI/UX Design', 'Content Writing', 'Data Analysis', 'Other'];
+const CATEGORIES = [
+  'Web Development',
+  'UI/UX Design',
+  'Content Writing',
+  'Data Analysis',
+  'Other',
+];
 
 const CreateJob = () => {
   const navigate = useNavigate();
   const { createJob } = useEscrow();
+
+  const {
+    account,
+    isConnected,
+    connectWallet,
+  } = useContext(WalletContext);
 
   const [form, setForm] = useState({
     title: '',
@@ -18,26 +33,63 @@ const CreateJob = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage('');
+
+    // A connected client wallet is required to create a job.
+    if (!isConnected || !account) {
+      try {
+        await connectWallet();
+        setErrorMessage(
+          'Wallet connected. Please click Create Job again.'
+        );
+      } catch (error) {
+        setErrorMessage(
+          error.message || 'Please connect your MetaMask wallet.'
+        );
+      }
+      return;
+    }
+
+    if (!form.deadline || new Date(form.deadline) <= new Date()) {
+      setErrorMessage('Please select a future deadline.');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const created = createJob({
-      title: form.title,
-      description: form.description,
-      category: form.category || 'Web Development',
-      budget: form.budget || '0.05',
-      deadline: form.deadline,
-    });
+    try {
+      const created = createJob({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        category: form.category || 'Web Development',
+        budget: form.budget || '0.05',
+        deadline: form.deadline,
+        clientAddress: account,
+        clientShort: `${account.slice(0, 6)}...${account.slice(-4)}`,
+      });
 
-    setTimeout(() => {
+      if (!created) {
+        throw new Error('Job could not be created.');
+      }
+
       navigate(`/jobs/${created.id}`);
-    }, 600);
+    } catch (error) {
+      setErrorMessage(
+        error.message || 'Something went wrong while creating the job.'
+      );
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -46,15 +98,22 @@ const CreateJob = () => {
         <div className="create-job-wrapper">
           <div className="create-job-card">
             <div className="create-job-header">
-              <h1 className="create-job-title">Create a New Job</h1>
+              <h1 className="create-job-title">
+                Create a New Job
+              </h1>
+
               <p className="create-job-sub">
-                Specify the details and lock the payment in escrow after selecting a freelancer.
+                Specify the details and lock the payment in escrow
+                after selecting a freelancer.
               </p>
             </div>
 
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label className="form-label">Job Title</label>
+                <label className="form-label">
+                  Job Title
+                </label>
+
                 <input
                   type="text"
                   className="form-input"
@@ -67,7 +126,10 @@ const CreateJob = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Description</label>
+                <label className="form-label">
+                  Description
+                </label>
+
                 <textarea
                   className="form-textarea"
                   name="description"
@@ -80,7 +142,10 @@ const CreateJob = () => {
 
               <div className="form-row-3">
                 <div className="form-group">
-                  <label className="form-label">Category</label>
+                  <label className="form-label">
+                    Category
+                  </label>
+
                   <select
                     className="form-select"
                     name="category"
@@ -88,17 +153,23 @@ const CreateJob = () => {
                     onChange={handleChange}
                     required
                   >
-                    <option value="">Select category</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    <option value="">
+                      Select category
+                    </option>
+
+                    {CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Budget (ETH)</label>
+                  <label className="form-label">
+                    Budget (ETH)
+                  </label>
+
                   <input
                     type="number"
                     step="0.001"
@@ -113,17 +184,47 @@ const CreateJob = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Deadline</label>
+                  <label className="form-label">
+                    Deadline
+                  </label>
+
                   <input
                     type="date"
                     className="form-input"
                     name="deadline"
+                    min={new Date().toISOString().split('T')[0]}
                     value={form.deadline}
                     onChange={handleChange}
                     required
                   />
                 </div>
               </div>
+
+              {isConnected && account && (
+                <div
+                  style={{
+                    marginTop: '1rem',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  Client wallet: {account}
+                </div>
+              )}
+
+              {errorMessage && (
+                <p
+                  role="alert"
+                  style={{
+                    marginTop: '1rem',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  {errorMessage}
+                </p>
+              )}
 
               <button
                 type="submit"

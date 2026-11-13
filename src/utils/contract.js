@@ -246,26 +246,12 @@ export async function createAndFundEscrow({
   amountEth,
   signer,
 }) {
-  try {
-    const contract = await getValidatedContract(signer);
-
-    if (!ethers.isAddress(freelancerAddress)) {
-      throw new Error('Please provide a valid freelancer wallet address.');
-    }
-
-    const amount = ethers.parseEther(String(amountEth));
-
-    const tx = await contract.createAndFundEscrow(
-      BigInt(jobId),
-      title,
-      freelancerAddress,
-      BigInt(deadline),
-      { value: amount }
-    );
-
-    return await waitForTransaction(tx);
-  } catch (error) {
-    handleTransactionError(error);
-  }
+  return createAndFundEscrowOnChain({
+    jobId,
+    title,
+    freelancerAddress,
+    amountEth,
+    deadlineTimestamp: deadline,
+    signer,
+  });
 }
-
