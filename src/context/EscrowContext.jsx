@@ -1,15 +1,25 @@
-// src/context/EscrowContext.jsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
+
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+} from 'react';
+
+import { ethers } from 'ethers';
+
 import { INITIAL_JOBS } from '../utils/mockData.js';
+
 import {
   depositToEscrow,
   submitWorkDeliverable,
   approveAndReleaseEscrow,
-  generateTxHash,
+  createAndFundEscrow,
 } from '../utils/contract.js';
 
 const STORAGE_KEY = 'decentra_escrow_jobs_v1';
 const TX_KEY = 'decentra_escrow_last_tx';
+const APPLICATIONS_KEY = 'decentra_escrow_applications_v1';
 
 export const EscrowContext = createContext(null);
 
@@ -18,52 +28,92 @@ export const EscrowProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.warn('Could not read saved jobs from localStorage:', e);
+    } catch (error) {
+      console.warn('Could not read saved jobs:', error);
     }
+
     return INITIAL_JOBS;
   });
 
+  // No default or simulated transaction
   const [lastTx, setLastTx] = useState(() => {
     try {
       const saved = localStorage.getItem(TX_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      // ignore
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.warn('Could not read saved transaction:', error);
+      return null;
     }
-    return {
-      hash: '0x7a9c8f2b1d3e4a5c6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7bc3d2',
-      amount: '0.05 ETH',
-      recipient: '0x5C...8a3F',
-      status: 'Success',
-      network: 'Sepolia Testnet',
-      date: 'Oct 23, 2026, 5:14 PM',
-      jobTitle: 'Build a Landing Page',
-    };
+  });
+
+  const [applications, setApplications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(APPLICATIONS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.warn('Could not read applications:', error);
+      return {};
+    }
   });
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
-    } catch (e) {
-      console.warn('Could not persist jobs to localStorage:', e);
+    } catch (error) {
+      console.warn('Could not save jobs:', error);
     }
   }, [jobs]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(TX_KEY, JSON.stringify(lastTx));
-    } catch (e) {
-      // ignore
+      if (lastTx) {
+        localStorage.setItem(TX_KEY, JSON.stringify(lastTx));
+      } else {
+        localStorage.removeItem(TX_KEY);
+      }
+    } catch (error) {
+      console.warn('Could not save transaction:', error);
     }
   }, [lastTx]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        APPLICATIONS_KEY,
+        JSON.stringify(applications)
+      );
+    } catch (error) {
+      console.warn('Could not save applications:', error);
+    }
+  }, [applications]);
+
   const getJob = (id) => {
-    return jobs.find((j) => String(j.id) === String(id)) || jobs[0];
+    return jobs.find((job) => String(job.id) === String(id)) || null;
   };
 
+  // Only jobs created on the deployed smart contract can be used
+  // for blockchain transactions.
+  const getOnChainJob = (id) => {
+    const job = getJob(id);
+
+    if (!job) {
+      throw new Error('Job not found.');
+    }
+
+    if (job.onChain !== true || job.chainJobId == null) {
+      throw new Error(
+        'This is a demo/local job, not an on-chain escrow. Create the escrow on Sepolia first.'
+      );
+    }
+
+    return job;
+  };
+
+  // Current job creation is local only.
+  // On-chain escrow creation will be integrated separately.
   const createJob = (newJobData) => {
     const newId = String(Date.now());
+
     const job = {
       id: newId,
       title: newJobData.title,
@@ -71,17 +121,27 @@ export const EscrowProvider = ({ children }) => {
       description: newJobData.description.slice(0, 80) + '...',
       description_full: newJobData.description,
       budget: parseFloat(newJobData.budget) || 0.05,
-      budgetUSD: Math.round((parseFloat(newJobData.budget) || 0.05) * 1700),
-      clientAddress: '0x84f18A7c3D4e5F6a7B8C9D0e1f2A3b4C5d6E9d1e',
-      clientShort: '0x84...9d1e',
-      freelancerAddress: '0x5C6a7B8c9D0e1F2a3B4c5D6E7f8A9B0c1D2e8a3F',
-      freelancerShort: '0x5C...8a3F',
+      budgetUSD: Math.round(
+        (parseFloat(newJobData.budget) || 0.05) * 1700
+      ),
+
+      // Placeholder information for local demo display only
+      clientAddress: null,
+      clientShort: null,
+      freelancerAddress: null,
+      freelancerShort: null,
+
       postedDays: 0,
       postedText: 'Just now',
       deadline: newJobData.deadline ? 10 : 7,
       deadlineDays: `${newJobData.deadline ? 10 : 7} days`,
       proposals: 0,
       status: 'open',
+
+      // Explicitly mark this job as not deployed on-chain
+      onChain: false,
+      chainJobId: null,
+
       requirements: [
         'Responsive and cross-browser support',
         'Clean, modular code architecture',
@@ -91,39 +151,34 @@ export const EscrowProvider = ({ children }) => {
     };
 
     setJobs((prev) => [job, ...prev]);
+
     return job;
   };
 
   const fundJob = async (id, signer) => {
-    const job = getJob(id);
+    const job = getOnChainJob(id);
+
     const result = await depositToEscrow({
-      jobId: id,
+      jobId: job.chainJobId,
       amountEth: job.budget,
       signer,
     });
 
-    const now = new Date().toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    });
+    const now = new Date().toLocaleString('en-US');
 
     setJobs((prev) =>
-      prev.map((j) =>
-        String(j.id) === String(id)
+      prev.map((item) =>
+        String(item.id) === String(id)
           ? {
-              ...j,
-              status: 'funded',
-              submission: {
-                ...(j.submission || {}),
-                fundedDate: now,
-                depositTxHash: result.hash,
-              },
-            }
-          : j
+            ...item,
+            status: 'funded',
+            submission: {
+              ...(item.submission || {}),
+              fundedDate: now,
+              depositTxHash: result.hash,
+            },
+          }
+          : item
       )
     );
 
@@ -131,37 +186,32 @@ export const EscrowProvider = ({ children }) => {
   };
 
   const submitWork = async (id, { url, message }, signer) => {
+    const job = getOnChainJob(id);
+
     const result = await submitWorkDeliverable({
-      jobId: id,
+      jobId: job.chainJobId,
       submissionUrl: url,
       submissionMessage: message,
       signer,
     });
 
-    const now = new Date().toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    });
+    const now = new Date().toLocaleString('en-US');
 
     setJobs((prev) =>
-      prev.map((j) =>
-        String(j.id) === String(id)
+      prev.map((item) =>
+        String(item.id) === String(id)
           ? {
-              ...j,
-              status: 'work_submitted',
-              submission: {
-                ...(j.submission || {}),
-                url,
-                message,
-                date: now,
-                submitTxHash: result.hash,
-              },
-            }
-          : j
+            ...item,
+            status: 'work_submitted',
+            submission: {
+              ...(item.submission || {}),
+              url,
+              message,
+              date: now,
+              submitTxHash: result.hash,
+            },
+          }
+          : item
       )
     );
 
@@ -169,25 +219,19 @@ export const EscrowProvider = ({ children }) => {
   };
 
   const approveAndRelease = async (id, signer) => {
-    const job = getJob(id);
+    const job = getOnChainJob(id);
+
     const result = await approveAndReleaseEscrow({
-      jobId: id,
+      jobId: job.chainJobId,
       signer,
     });
 
-    const now = new Date().toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: true,
-    });
+    const now = new Date().toLocaleString('en-US');
 
     const txDetails = {
       hash: result.hash,
       amount: `${job.budget} ETH`,
-      recipient: job.freelancerShort || '0x5C...8a3F',
+      recipient: job.freelancerAddress || 'Not available',
       status: 'Success',
       network: 'Sepolia Testnet',
       date: now,
@@ -197,35 +241,165 @@ export const EscrowProvider = ({ children }) => {
     setLastTx(txDetails);
 
     setJobs((prev) =>
-      prev.map((j) =>
-        String(j.id) === String(id)
+      prev.map((item) =>
+        String(item.id) === String(id)
           ? {
-              ...j,
-              status: 'approved',
-              submission: {
-                ...(j.submission || {}),
-                completedDate: now,
-                releaseTxHash: result.hash,
-              },
-            }
-          : j
+            ...item,
+            status: 'approved',
+            submission: {
+              ...(item.submission || {}),
+              completedDate: now,
+              releaseTxHash: result.hash,
+            },
+          }
+          : item
       )
     );
 
     return txDetails;
   };
 
-  const raiseDispute = (id, reason) => {
-    setJobs((prev) =>
-      prev.map((j) =>
-        String(j.id) === String(id)
-          ? {
-              ...j,
-              status: 'disputed',
-              disputeReason: reason || 'Dispute raised by client',
-            }
-          : j
+  // Freelancer applies for a job
+  const applyForJob = (jobId, { walletAddress, proposal }) => {
+    const job = getJob(jobId);
+
+    if (!job) {
+      throw new Error('Job not found.');
+    }
+
+    if (!ethers.isAddress(walletAddress)) {
+      throw new Error('Invalid freelancer wallet address.');
+    }
+
+    if (job.status !== 'open') {
+      throw new Error('This job is no longer accepting applications.');
+    }
+
+    const existing = applications[jobId] || [];
+
+    if (
+      existing.some(
+        (application) =>
+          application.walletAddress.toLowerCase() === walletAddress.toLowerCase()
       )
+    ) {
+      throw new Error('You have already applied for this job.');
+    }
+
+    const newApplication = {
+      id: `${Date.now()}`,
+      walletAddress,
+      proposal,
+      appliedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+
+    setApplications((prev) => ({
+      ...prev,
+      [jobId]: [...(prev[jobId] || []), newApplication],
+    }));
+
+    setJobs((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(jobId)
+          ? { ...item, proposals: (item.proposals || 0) + 1 }
+          : item
+      )
+    );
+
+    return newApplication;
+  };
+
+  // Client views applications for a job
+  const getApplications = (jobId) => {
+    return applications[jobId] || [];
+  };
+
+  // Client selects a freelancer and creates + funds the escrow
+  const selectFreelancer = async (jobId, applicationId, signer) => {
+    const job = getJob(jobId);
+
+    if (!job) {
+      throw new Error('Job not found.');
+    }
+
+    if (job.onChain === true) {
+      throw new Error('An escrow has already been created for this job.');
+    }
+
+    const application = getApplications(jobId).find(
+      (item) => String(item.id) === String(applicationId)
+    );
+
+    if (!application) {
+      throw new Error('Application not found.');
+    }
+
+    const deadlineTimestamp = Math.floor(
+      Date.now() / 1000
+    ) + (Number(job.deadline || 7) * 24 * 60 * 60);
+
+    const chainJobId = Date.now();
+
+    const result = await createAndFundEscrow({
+      jobId: chainJobId,
+      title: job.title,
+      freelancerAddress: application.walletAddress,
+      deadline: deadlineTimestamp,
+      amountEth: job.budget,
+      signer,
+    });
+
+    const now = new Date().toLocaleString('en-US');
+
+    setJobs((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(jobId)
+          ? {
+            ...item,
+            freelancerAddress: application.walletAddress,
+            freelancerShort: `${application.walletAddress.slice(0, 6)}...${application.walletAddress.slice(-4)}`,
+            chainJobId,
+            onChain: true,
+            status: 'funded',
+            selectedApplicationId: applicationId,
+            submission: {
+              ...(item.submission || {}),
+              fundedDate: now,
+              depositTxHash: result.hash,
+            },
+          }
+          : item
+      )
+    );
+
+    setApplications((prev) => ({
+      ...prev,
+      [jobId]: (prev[jobId] || []).map((item) => ({
+        ...item,
+        status: String(item.id) === String(applicationId)
+          ? 'selected'
+          : 'rejected',
+      })),
+    }));
+
+    setLastTx({
+      hash: result.hash,
+      amount: `${job.budget} ETH`,
+      recipient: application.walletAddress,
+      status: 'Success',
+      network: 'Sepolia Testnet',
+      date: now,
+      jobTitle: job.title,
+    });
+
+    return result;
+  };
+
+  // Dispute transactions will be connected to the contract separately.
+  const raiseDispute = async () => {
+    throw new Error(
+      'On-chain dispute functionality has not been connected yet.'
     );
   };
 
@@ -240,6 +414,11 @@ export const EscrowProvider = ({ children }) => {
         approveAndRelease,
         raiseDispute,
         lastTx,
+
+        applications,
+        applyForJob,
+        getApplications,
+        selectFreelancer,
       }}
     >
       {children}
@@ -249,8 +428,12 @@ export const EscrowProvider = ({ children }) => {
 
 export const useEscrow = () => {
   const context = useContext(EscrowContext);
+
   if (!context) {
-    throw new Error('useEscrow must be used within an EscrowProvider');
+    throw new Error(
+      'useEscrow must be used within an EscrowProvider'
+    );
   }
+
   return context;
 };
